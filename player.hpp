@@ -37,7 +37,6 @@ public:
     void endTurn(Catan &game);  // End the player's turn
     void trade(Player &other, const std::vector<std::string> &offer, const std::vector<int> &offerAmounts, const std::vector<std::string> &request, const std::vector<int> &requestAmounts);  // Trade resources with another player
     void buyDevelopmentCard();  // Buy a development card from the bank
-    void useDevelopmentCard(int cardIndex, Catan &game);  // Use a development card (monopoly, road building, year of plenty, knight, victory point)
     void printPoints() const;  // Print player's current victory points
 };
 
