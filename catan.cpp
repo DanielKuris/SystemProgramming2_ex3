@@ -30,9 +30,10 @@ Player& Catan::getCurrentPlayer() {
 }
 
 void Catan::nextTurn() {
-    currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-    std::cout << "Next player's turn: " << players[currentPlayerIndex].getName() << std::endl;
+    currentPlayerIndex = (currentPlayerIndex % players.size()) + 1;
+    std::cout << "Next player's turn: " << players[currentPlayerIndex - 1].getName() << std::endl;
 }
+
 
 Player& Catan::getPlayer(int playerId) {
     for (auto &player : players) {

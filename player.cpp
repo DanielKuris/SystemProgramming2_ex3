@@ -39,56 +39,71 @@ void Player::deductResources(const std::map<std::string, int> &cost) {
 void Player::placeSettlement(int landIndex, int spotIndex, Catan &game) {
     static const std::map<std::string, int> settlementCost = {{"brick", 1}, {"wood", 1}, {"wool", 1}, {"wheat", 1}};
     
+    if (landIndex < 0 || landIndex >= 19 || spotIndex < 0 || spotIndex >= 6) {
+        std::cout << "Invalid land index or spot index. Cancelling the placement." << std::endl;
+        return;
+    }
+
     if (!hasResources(settlementCost)) {
-        throw std::runtime_error("Not enough resources to place a settlement");
+        std::cout << "Not enough resources to place a settlement. Cancelling the purchase." << std::endl;
+        return;
     }
-
     Land &land = game.getBoard().getLand(landIndex);
-    if (!land.isSpotAvailable(spotIndex) || !land.isConnected(spotIndex, color)) {
-        throw std::runtime_error("Spot not available for settlement or not connected to a road");
+    if(land.occupySpot(spotIndex, color)){
+        lands[landIndex] = true;
+        points++;
+        deductResources(settlementCost);
+        std::cout << name << " placed a settlement on land " << landIndex << " at spot " << spotIndex << std::endl;
     }
-
-    land.occupySpot(spotIndex, color);
-    lands[landIndex] = true;
-    points++;
-    deductResources(settlementCost);
-    std::cout << name << " placed a settlement on land " << landIndex << " at spot " << spotIndex << std::endl;
 }
 
-void Player::placeRoad(int landIndex, int pathIndex, Catan &game) {
+
+
+void Player::placeRoad(int landIndex, int roadIndex, Catan &game) {
     static const std::map<std::string, int> roadCost = {{"brick", 1}, {"wood", 1}};
 
+    if (landIndex < 0 || landIndex >= 19 || roadIndex < 0 || roadIndex >= 6) {
+        std::cout << "Invalid land index or road index. Cancelling the placement." << std::endl;
+        return;
+    }
+
     if (!hasResources(roadCost)) {
-        throw std::runtime_error("Not enough resources to place a road");
+        std::cout << "Not enough resources to place a road. Cancelling the purchase." << std::endl;
+        return;
     }
 
     Land &land = game.getBoard().getLand(landIndex);
-    if (!land.isPathAvailable(pathIndex) || !land.isConnected(pathIndex, color)) {
-        throw std::runtime_error("Path not available for road or not connected to a settlement/road/city");
+    if(land.occupyRoad(roadIndex, color)){
+        deductResources(roadCost);
+        lands[landIndex] = true;
+        std::cout << name << " placed a road on land " << landIndex << " at road " << roadIndex << std::endl;
     }
-
-    land.occupyPath(pathIndex, color);
-    deductResources(roadCost);
-    std::cout << name << " placed a road on land " << landIndex << " at path " << pathIndex << std::endl;
 }
+
 
 void Player::upgradeSettlement(int landIndex, int spotIndex, Catan &game) {
     static const std::map<std::string, int> cityCost = {{"ore", 3}, {"wheat", 2}};
 
+    if (landIndex < 0 || landIndex >= 19 || spotIndex < 0 || spotIndex >= 6) {
+        std::cout << "Invalid land index or road index. Cancelling the placement." << std::endl;
+        return;
+    }
+
     if (!hasResources(cityCost)) {
-        throw std::runtime_error("Not enough resources to upgrade to a city");
+        std::cout << "Not enough resources to upgrade to a city. Cancelling the upgrade." << std::endl;
+        return;
     }
 
     Land &land = game.getBoard().getLand(landIndex);
-    if (!lands[landIndex] || land.getSpotOwner(spotIndex) != color) {
-        throw std::runtime_error("No settlement to upgrade or not owned by the player");
+    if (land.upgradeToCity(spotIndex, color, game)) {
+        points++;
+        deductResources(cityCost);
+        std::cout << name << " upgraded a settlement to a city on land " << landIndex << " at spot " << spotIndex << std::endl;
+    } else {
+        std::cout << "Invalid city upgrade. Cancelling the upgrade." << std::endl;
     }
-
-    land.upgradeSpotToCity(spotIndex, color);
-    points++;
-    deductResources(cityCost);
-    std::cout << name << " upgraded a settlement to a city on land " << landIndex << " at spot " << spotIndex << std::endl;
 }
+
 
 void Player::rollDice(Catan &game) {
     int diceRoll = rand() % 11 + 2; // Generates a random number from 2 to 12
@@ -96,7 +111,7 @@ void Player::rollDice(Catan &game) {
     if (diceRoll == 7) {
         std::cout << "Dice rolled: " << diceRoll << std::endl;
         int robberPlacement;
-        std::cout << "Choose a number between 1-19 to place the robber: ";
+        std::cout << "Choose a number between 0-18 to place the robber: ";
         std::cin >> robberPlacement;
 
         // Update the board's robber position
@@ -149,7 +164,7 @@ void Player::rollDice(Catan &game) {
         // Iterate over all lands on the board
         for (int landIndex = 0; landIndex < 19; ++landIndex) {
             Land &land = game.getBoard().getLand(landIndex);
-            if (land.getNumber() == diceRoll && !game.getBoard().hasRobber(landIndex)) {
+            if (land.getProbability() == diceRoll && game.getBoard().getRobberLocation() != landIndex) {
                 // Check settlements and cities on this land
                 for (int spotIndex = 0; spotIndex < 6; ++spotIndex) {
                     int ownerColor = land.cities[spotIndex]; // Check if there's a city first
@@ -165,11 +180,20 @@ void Player::rollDice(Catan &game) {
         }
 
         // Print collected resources for the current player
-        std::cout << name << "'s resources collected:" << std::endl;
-        for (const auto &res : resources) {
-            std::cout << res.second << " " << res.first << std::endl;
+        std::cout << "Current player's resources:" << std::endl;
+        for (int playerId = 1; playerId <= game.getNumPlayers(); ++playerId) {
+            std::cout << "Player " << playerId << ": ";
+            bool firstResource = true;
+            for (const auto &res : game.getPlayer(playerId).resources) {
+                if (!firstResource) {
+                    std::cout << ", ";
+                }
+                std::cout << res.second << " " << res.first;
+                firstResource = false;
+            }
         }
         std::cout << std::endl;
+
     }
 }
 
