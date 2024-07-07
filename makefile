@@ -27,3 +27,4 @@ clean:
 .PHONY: all clean run catan
 
 catan: run
+
