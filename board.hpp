@@ -1,21 +1,23 @@
-// board.hpp
 #ifndef BOARD_HPP
 #define BOARD_HPP
 
-#include "land.hpp"
-#include <vector>
+#include "land.hpp" // Include the necessary header for Land class
+
+#include <array>    // Include for std::array
+#include <stdexcept> // Include for std::out_of_range exception
 
 class Board {
 private:
-    std::vector<Land> lands; // Vector of 19 lands
-    int robberLocation; // Current location of the robber
-    std::vector<std::vector<int>> neighbors; // List of neighbors for each land
+    std::array<Land, 19> lands; // Array of 19 Land objects
+    int robberLocation;          // Index of the land where the robber is located
+    const std::array<std::array<int, 6>, 19> neighbors; // Array representing neighbors for each land
 
 public:
-    Board();
-    Land& getLand(int index);
-    void placeRobber(int landIndex);
-    int getRobberLocation() const;
+    Board(); // Constructor
+
+    Land& getLand(int index); // Getter for accessing a specific Land object by index
+    void placeRobber(int landIndex); // Sets the robber's location to a specified land index
+    int getRobberLocation() const; // Getter for obtaining the current location of the robber
 };
 
-#endif
+#endif // BOARD_HPP

@@ -9,7 +9,7 @@
 #include <cmath>   // For std::floor function
 
 Player::Player(const std::string &name, int color) 
-    : name(name), color(color), points(0), lands(19, false), developmentCards(5, 0) {
+    : name(name), color(color), points(0), lands(19, false), developmentCards(5, 0), usedKnights(0) {
     resources = {{"wood", 0}, {"brick", 0}, {"wheat", 0}, {"ore", 0}, {"wool", 0}};
 }
 
@@ -33,6 +33,66 @@ bool Player::hasResources(const std::map<std::string, int> &cost) const {
 void Player::deductResources(const std::map<std::string, int> &cost) {
     for (const auto &item : cost) {
         resources[item.first] -= item.second;
+    }
+}
+
+void Land::initialOccupy(Catan &game) {
+    for (int i = 0; i < 2; ++i) { // Repeat the process twice
+        int landIndex, spotIndex;
+        std::vector<std::pair<int, int>> adjacentRoads;
+
+        // Loop until a valid settlement is chosen
+        do {
+            std::cout << "Player " << color << ", choose a land index (0-18): ";
+            std::cin >> landIndex;
+            std::cout << "Choose a settlement index (0-5): ";
+            std::cin >> spotIndex;
+
+            if (landIndex < 0 || landIndex >= 19 || spotIndex < 0 || spotIndex >= 6) {
+                std::cout << "Invalid indexes. Try again." << std::endl;
+                continue;
+            }
+
+            Land &land = game.getBoard().getLand(landIndex);
+            adjacentRoads = land.isValidSettlementInitial(spotIndex, color, game);
+            if (adjacentRoads.empty()) {
+                std::cout << "Invalid settlement spot. Try again." << std::endl;
+            }
+        } while (adjacentRoads.empty());
+
+        // Settle on the chosen spot
+        Land &land = game.getBoard().getLand(landIndex);
+        land.settlements[spotIndex] = color;
+        land.occupyNeighborsSpot(spotIndex, color, game);
+
+        // Update player's lands
+        Player &player = game.getPlayer(color);
+        player.lands[landIndex] = true;
+
+        // Prompt user to choose one of the adjacent roads until valid choice is made
+        int roadChoice;
+        do {
+            std::cout << "Choose one of the adjacent roads:" << std::endl;
+            for (size_t j = 0; j < adjacentRoads.size(); ++j) {
+                std::cout << j << ": Land index " << adjacentRoads[j].first << ", Road index " << adjacentRoads[j].second << std::endl;
+            }
+            std::cin >> roadChoice;
+
+            if (roadChoice < 0 || roadChoice >= adjacentRoads.size()) {
+                std::cout << "Invalid road choice. Try again." << std::endl;
+            } else {
+                int chosenLandIndex = adjacentRoads[roadChoice].first;
+                int chosenRoadIndex = adjacentRoads[roadChoice].second;
+
+                Land &chosenLand = game.getBoard().getLand(chosenLandIndex);
+                chosenLand.roads[chosenRoadIndex] = color;
+                chosenLand.occupyNeighborsRoad(chosenRoadIndex, color, game);
+
+                // Update player's lands
+                player.lands[chosenLandIndex] = true;
+                break; // Exit the loop when a valid choice is made
+            }
+        } while (true);
     }
 }
 
@@ -244,59 +304,164 @@ void Player::buyDevelopmentCard() {
 
     deductResources(cardCost);
 
-    // Generate a random development card type (0-3, excluding victoryPoints)
-    int cardType = rand() % 4;
+    // Generate a random development card type (0-4)
+    int cardType = rand() % 5;
     developmentCards[cardType]++;
-    std::cout << name << " bought a development card of type " << cardType << std::endl;
-}
-
-void Player::useDevelopmentCard(int cardIndex, Catan &game) {
-    if (cardIndex < 0 || cardIndex > 4) {
-        throw std::out_of_range("Invalid development card index");
-    }
-
     switch (cardIndex) {
         case 0:
-            useMonopoly();
+            std::cout << name << " bought a development card of type monopoly" << std::endl;
             break;
         case 1:
-            useRoadBuilding(game);
+            std::cout << name << " bought a development card of type road building" << std::endl;
             break;
         case 2:
-            useYearOfPlenty();
+            std::cout << name << " bought a development card of type year of plenty" << std::endl;
             break;
         case 3:
-            useKnight();
+            std::cout << name << " bought a development card of type knight" << std::endl;
+            break;
+        case 4:
+            std::cout << name << " bought a development card of type victory point" << std::endl;
+            points++;
             break;
         default:
             throw std::out_of_range("Invalid development card index");
     }
 }
 
+
+
 void Player::printPoints() const {
     std::cout << name << " has " << points << " points." << std::endl;
 }
 
-void Player::useMonopoly() {
-    developmentCards[0]--;
-    // Implement monopoly card effect here
-    std::cout << name << " used a monopoly card." << std::endl;
+void Player::useMonopoly(Catan &game) {
+    std::string resourceName;
+    std::cout << "Enter a resource name (wood, brick, wheat, ore, wool): ";
+    std::cin >> resourceName;
+
+    // Validate resource name
+    while (resources.find(resourceName) == resources.end()) {
+        std::cout << "Invalid resource name. Enter a valid resource name: ";
+        std::cin >> resourceName;
+    }
+
+    int totalTaken = 0;
+    // Collect all instances of this resource from other players
+    for (int playerId = 1; playerId <= 3; ++playerId) {
+        if (playerId == color) continue; // Skip current player
+        Player &currentPlayer = game.getPlayer(playerId);
+
+        // Take the resource amount from other players
+        int taken = currentPlayer.resources[resourceName];
+        resources[resourceName] += taken;
+        currentPlayer.resources[resourceName] = 0;
+        totalTaken += taken;
+    }
+
+    std::cout << name << " used a monopoly card and gained " << totalTaken << " " << resourceName << " from other players." << std::endl;
+    game.nextTurn();
 }
 
 void Player::useRoadBuilding(Catan &game) {
-    developmentCards[1]--;
-    // Implement road building card effect here
-    std::cout << name << " used a road building card." << std::endl;
+    if(developmentCards[1] == 0) {
+        std::cout << "You don't have any road building cards to use." << std::endl;
+        return;
+    }
+
+    int validAttempts = 0;
+
+    int landIndex; 
+    int roadIndex;
+
+    while (validAttempts < 2) {
+        std::cout << "Enter land index and road index to place road (e.g., 0 1): ";
+        std::cin >> landIndex >> roadIndex;
+
+        if (landIndex >= 0 && landIndex < 19 && roadIndex >= 0 && roadIndex < 6) {
+            Land &land = game.getBoard().getLand(landIndex);
+            if (land.occupyRoad(roadIndex, color)) {
+                lands[landIndex] = true;
+                std::cout << name << " has placed a road on land " << landIndex << " at road " << roadIndex << "." << std::endl;
+                validAttempts++;
+            } else {
+                std::cout << "Invalid indexes. Try again." << std::endl;
+            }
+        } else {
+            std::cout << "Invalid indexes. Try again." << std::endl;
+        }
+    }
+
+    developmentCards[1]--; // Decrease Road Building card count
+    game.nextTurn();
 }
 
-void Player::useYearOfPlenty() {
-    developmentCards[2]--;
-    // Implement year of plenty card effect here
-    std::cout << name << " used a year of plenty card." << std::endl;
+
+void Player::useYearOfPlenty(Catan &game) {
+    if(developmentCards[2] == 0) {
+        std::cout << "You don't have any year of plenty cards to use." << std::endl;
+        return;
+    }
+
+    std::string resourceName;
+    int validAttempts = 0;
+
+    while (validAttempts < 2) {
+        std::cout << "Enter a resource name to receive (wood, brick, wheat, ore, wool): ";
+        std::cin >> resourceName;
+
+        if (resources.find(resourceName) != resources.end()) {
+            resources[resourceName]++;
+            std::cout << "Received 1 " << resourceName << "." << std::endl;
+            validAttempts++;
+        } else {
+            std::cout << "Invalid resource name. Try again." << std::endl;
+        }
+    }
+
+    developmentCards[2]--; // Decrease Year of Plenty card count
+    game.nextTurn();
 }
 
-void Player::useKnight() {
+
+
+void Player::useKnight(Catan &game) {
+    if (developmentCards[3] == 0) {
+        std::cout << "You don't have any knight cards to use." << std::endl;
+        return;
+    }
+
     developmentCards[3]--;
-    // Implement knight card effect here
-    std::cout << name << " used a knight card." << std::endl;
+    usedKnights++;
+
+    // Move robber to a location chosen by command line input
+    int robberPlacement;
+    std::cout << "Choose a number between 0-18 to place the robber: ";
+    std::cin >> robberPlacement;
+
+    // Validate robber placement
+    while (robberPlacement < 0 || robberPlacement > 18) {
+        std::cout << "Invalid request. Please choose a number between 0-18: ";
+        std::cin >> robberPlacement;
+    }
+
+    // Move the robber
+    game.getBoard().placeRobber(robberPlacement);
+
+    std::cout << name << " used a knight card and moved the robber to location " << robberPlacement << std::endl;
+
+    // Check if current player has more knights than the current mostKnights
+    if (usedKnights > game.mostKnights && usedKnights > 2) {
+        // Decrease former player's points by 2 if there was a previous leader
+        if (game.mostKnights > 0) {
+            game.getPlayer(game.mostKnightsPlayer).points -= 2;
+        }
+        // Update game's mostKnights and mostKnightsPlayer
+        game.mostKnights = usedKnights;
+        game.mostKnightsPlayer = color;
+        // Increase current player's points by 2
+        points += 2;
+    }
+
+    game.nextTurn();
 }

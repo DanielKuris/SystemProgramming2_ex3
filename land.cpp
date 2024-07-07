@@ -36,22 +36,25 @@ bool Land::occupySpot(int spotIndex, int playerColor, Catan &game) {
 void Land::occupyNeighborsSpot(int spotIndex, int playerColor, Catan &game) {
     auto& neighbors = game.getBoard().neighbors;
 
-    int neighborIndex = (spotIndex-2+6)%6;
+    int neighborIndex = (spotIndex - 2 + 6) % 6;
     int landIndex = neighbors[number][neighborIndex];
 
     if (landIndex != -1) {
-        int sharedSpot = (spotIndex+2)%6;
-        game.getBoard().getLand(neighborIndex).settlements[sharedSpot] = playerColor;
+        int sharedSpot = (spotIndex + 2) % 6;
+        game.getBoard().getLand(landIndex).settlements[sharedSpot] = playerColor;
+        game.getPlayer(playerColor).lands[landIndex] = true; // Update current player's lands
     }
 
     neighborIndex = (neighborIndex + 1) % 6;
     landIndex = neighbors[number][neighborIndex];
 
     if (landIndex != -1) {
-        int sharedSpot = (spotIndex-2+6)%6;
-        game.getBoard().getLand(neighborIndex).settlements[sharedSpot] = playerColor;
+        int sharedSpot = (spotIndex - 2 + 6) % 6;
+        game.getBoard().getLand(landIndex).settlements[sharedSpot] = playerColor;
+        game.getPlayer(playerColor).lands[landIndex] = true; // Update current player's lands
     }
 }
+
 
 bool Land::occupyRoad(int roadIndex, int playerColor, Catan &game) {
     if(roadIndex < 0 || roadIndex >= 6) {
@@ -79,6 +82,7 @@ void Land::occupyNeighborsRoad(int roadIndex, int playerColor, Catan &game) {
     if (landIndex != -1) {
         int sharedEdgeIndex = (neighborIndex+4)%6;
         game.getBoard().getLand(neighborIndex).roads[sharedEdgeIndex] = playerColor;
+        game.getPlayer(playerColor).lands[landIndex] = true; // Update current player's lands
     }
 }
 
@@ -110,6 +114,7 @@ void Land::occupyNeighborsCity(int spotIndex, int playerColor, Catan &game) {
         int sharedSpot = (spotIndex+2)%6;
         game.getBoard().getLand(neighborIndex).cities[sharedSpot] = playerColor;
         game.getBoard().getLand(neighborIndex).settlements[sharedSpot] = 0;
+        game.getPlayer(playerColor).lands[landIndex] = true; // Update current player's lands
     }
 
     neighborIndex = (neighborIndex + 1) % 6;
@@ -119,6 +124,7 @@ void Land::occupyNeighborsCity(int spotIndex, int playerColor, Catan &game) {
         int sharedSpot = (spotIndex-2+6)%6;
         game.getBoard().getLand(neighborIndex).cities[sharedSpot] = playerColor;
         game.getBoard().getLand(neighborIndex).settlements[sharedSpot] = 0;
+        game.getPlayer(playerColor).lands[landIndex] = true; // Update current player's lands
     }
 }
 
@@ -226,4 +232,60 @@ bool Land::isValidSettlement(int setIndex, int playerColor, Catan &game) const {
     }
 
     return true && hasNearbyRoad;
+}
+
+
+std::vector<std::pair<int, int>> Land::isValidSettlementInitial(int setIndex, int playerColor, Catan &game) const {
+    std::set<std::pair<int, int>> uniqueAdjacentRoads;
+
+    if (settlements[setIndex] != 0 || cities[setIndex] != 0) {
+        std::cout << "Invalid request: Settlement index " << setIndex << " is already occupied. Cancelling settlement building." << std::endl;
+        return {}; // Return an empty vector
+    }
+
+    if (settlements[(setIndex - 1 + 6) % 6] != 0 || cities[(setIndex - 1 + 6) % 6] != 0 ||
+        settlements[(setIndex + 1) % 6] != 0 || cities[(setIndex + 1) % 6] != 0) {
+        return {}; // Return an empty vector
+    }
+
+    if (roads[(setIndex - 1 + 6) % 6] == playerColor) {
+        uniqueAdjacentRoads.insert({number, (setIndex - 1 + 6) % 6});
+    }
+    if (roads[setIndex % 6] == playerColor) {
+        uniqueAdjacentRoads.insert({number, setIndex % 6});
+    }
+
+    auto &neighbors = game.getBoard().neighbors;
+
+    int neighborIndex = (setIndex - 2 + 6) % 6;
+    int landIndex = neighbors[number][neighborIndex];
+
+    if (landIndex != -1) {
+        int sharedEdgeIndex = (neighborIndex + 4) % 6;
+        if (game.getBoard().getLand(landIndex).roads[(sharedEdgeIndex - 1 + 6) % 6] == playerColor) {
+            uniqueAdjacentRoads.insert({landIndex, (sharedEdgeIndex - 1 + 6) % 6});
+        }
+
+        if (game.getBoard().getLand(landIndex).settlements[(sharedEdgeIndex - 1 + 6) % 6] != 0 ||
+            game.getBoard().getLand(landIndex).cities[(sharedEdgeIndex - 1 + 6) % 6] != 0) {
+            return {}; // Return an empty vector
+        }
+    }
+
+    neighborIndex = (neighborIndex + 1) % 6;
+    landIndex = neighbors[number][neighborIndex];
+
+    if (landIndex != -1) {
+        int sharedEdgeIndex = (neighborIndex + 4) % 6;
+        if (game.getBoard().getLand(landIndex).roads[(sharedEdgeIndex + 1 + 6) % 6] == playerColor) {
+            uniqueAdjacentRoads.insert({landIndex, (sharedEdgeIndex + 1 + 6) % 6});
+        }
+
+        if (game.getBoard().getLand(landIndex).settlements[(sharedEdgeIndex + 2 + 6) % 6] != 0 ||
+            game.getBoard().getLand(landIndex).cities[(sharedEdgeIndex + 2 + 6) % 6] != 0) {
+            return {}; // Return an empty vector
+        }
+    }
+
+    return std::vector<std::pair<int, int>>(uniqueAdjacentRoads.begin(), uniqueAdjacentRoads.end());
 }
