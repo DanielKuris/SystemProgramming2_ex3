@@ -1,3 +1,5 @@
+// danielkuris6@gmail.com
+
 // player.cpp
 #include "player.hpp"
 #include "catan.hpp"

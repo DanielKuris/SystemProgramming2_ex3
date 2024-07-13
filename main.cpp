@@ -1,3 +1,5 @@
+// danielkuris6@gmail.com
+
 #include <iostream>
 #include <cstdlib>
 #include <ctime>

@@ -1,3 +1,5 @@
+// danielkuris6@gmail.com
+
 // catan.cpp
 #include "catan.hpp"
 #include <iostream>

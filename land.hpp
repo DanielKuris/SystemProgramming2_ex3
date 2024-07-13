@@ -1,3 +1,5 @@
+// danielkuris6@gmail.com
+
 #ifndef LAND_HPP
 #define LAND_HPP
 

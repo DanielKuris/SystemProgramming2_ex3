@@ -1,3 +1,5 @@
+// danielkuris6@gmail.com
+
 #include "board.hpp"
 #include <stdexcept>
 
